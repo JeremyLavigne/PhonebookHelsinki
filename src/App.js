@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react'
-import axios from 'axios'
+import personService from './services/persons'
+
+
 
 const Filter = ({onChange, filter}) => {
     return ( 
@@ -25,12 +27,12 @@ const AddSomeone = ({onSubmit, newName, newNumber, onChange, onChange2}) => {
     )
 }
 
-const Numbers = ({persons, filter}) => {
+const Numbers = ({persons, filter, onClick}) => {
     return (
         <ul>
             {persons
             .filter((person) => person.name.toLowerCase().includes(filter))
-            .map((person) => <li key={person.name}>{person.name}, {person.number}</li>)}
+            .map((person) => <li key={person.name}>{person.name}, {person.number}<button onClick={(id, name) => onClick(person.id, person.name)}>&#9760;</button></li>)}
         </ul>
     )
 }
@@ -41,24 +43,25 @@ const App = () => {
 
     // ------------------ Variables ------------------
 
-  const [ persons, setPersons ] = useState([]) 
-  const [ newName, setNewName ] = useState('')
-  const [ newNumber, setNewNumber ] = useState('')
-  const [ filter, setFilter ] = useState('')
+  const [ persons, setPersons ] = useState([])  // Contains all persons
+  const [ newName, setNewName ] = useState('')  // Contain Name of the person to add
+  const [ newNumber, setNewNumber ] = useState('') // Contain Number of the person to add
+  const [ filter, setFilter ] = useState('') // Contain the content of the filter input
 
+  // Fill "persons" array with json file, on server
   useEffect(() => {
-    axios
-      .get('http://localhost:3001/persons')
-      .then(response => {
-        console.log('promise fulfilled')
-        setPersons(response.data)
+    personService
+      .getAll()
+      .then(initialPersons => {
+        console.log('promise fulfilled (getAll, first)')
+        setPersons(initialPersons)
       })
   }, [])
-  console.log('render', persons.length, 'persons')
 
 
     // ----------------- Methods ---------------------
 
+  // Create new person and add it to the server
   const addSomeone = (event) => {
     event.preventDefault()
 
@@ -69,13 +72,61 @@ const App = () => {
             name : newName,
             number : newNumber
         }
+
+        // Add it to the server
+        personService
+          .create(personObject)
+          .then(personObject => {
+            console.log('promise fulfilled (create), with new object :', personObject)
+            setPersons(persons.concat(personObject))
+          })
     
-        setPersons(persons.concat(personObject))
+        // Reinitialize Name and Number for the next one
         setNewName('')
         setNewNumber('')
+
     } else {
-        alert(`${newName} is already added to phonebook`)
+        // If name already exist, ask for changing the number, and so update it
+        if (window.confirm(`${newName} is already added to phonebook, would you like to change the number?`)) {
+          
+          // How to get the id ? 
+          console.log(persons.filter((person) => person.name === newName))
+
+          const id = persons.filter((person) => person.name === newName)[0].id
+          const updateObject = {
+            name : newName,
+            number : newNumber
+          }
+
+          personService
+            .update(id, updateObject)
+            .then(updateObject => {
+              console.log('promise fulfilled (update), with object :', updateObject)
+              setPersons(persons.map((person) => person.name !== newName ? person : updateObject))
+            })
+          
+        
+        } else {
+          console.log("Cancelled, nothing changes")
+          setNewName('')
+          setNewNumber('')
+        }
     }
+  }
+
+  const deleteSomeone = (id, name) => {
+    console.log('Zoup, you are dead, you with id ', id, 'and name ', name)
+
+    personService
+      .deletePerson(id)
+      .then(()=> {
+        console.log('promise fulfilled (delete), object id :', id)
+
+        // Works, but let the old id (if you delete id 5, old id 6 stays at 6 and not become 5)
+        // Is it that bad?
+        setPersons(persons.filter(p => p.id !== id))
+
+      }) 
   }
 
   const handleNameChange = (event) => {
@@ -90,10 +141,7 @@ const App = () => {
     setFilter(event.target.value)
   }
 
-  //console.log("Persons array :", persons, 
-  //" , newName variable :", newName,  
-  //" , newNumber variable :", newNumber,
-  //" , filter variable :", filter)
+  //console.log("Persons array :", persons, " , newName variable :", newName, " , newNumber variable :", newNumber," , filter variable :", filter)
 
   return (
     <div>
@@ -117,6 +165,7 @@ const App = () => {
       <Numbers 
         persons={persons}
         filter={filter}
+        onClick={deleteSomeone}
       />
 
     </div>
