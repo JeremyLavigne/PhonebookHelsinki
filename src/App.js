@@ -2,6 +2,37 @@ import React, { useState, useEffect } from 'react'
 import personService from './services/persons'
 
 
+const SuccessMsg = ({successMsg}) => {
+  const successMsgStyle = {
+    color: 'green',
+    fontStyle: 'italic',
+    fontSize: 16
+  }
+
+  if (successMsg !== '') {
+    return (
+      <p style={successMsgStyle}>{successMsg}</p>
+    )
+  } else {
+    return null
+  }
+}
+
+const ErrorMsg = ({errorMsg}) => {
+  const errorMsgStyle = {
+    color: 'red',
+    fontStyle: 'bold',
+    fontSize: 18
+  }
+
+  if (errorMsg !== '') {
+    return (
+      <p style={errorMsgStyle}>{errorMsg}</p>
+    )
+  } else {
+    return null
+  }
+}
 
 const Filter = ({onChange, filter}) => {
     return ( 
@@ -47,6 +78,8 @@ const App = () => {
   const [ newName, setNewName ] = useState('')  // Contain Name of the person to add
   const [ newNumber, setNewNumber ] = useState('') // Contain Number of the person to add
   const [ filter, setFilter ] = useState('') // Contain the content of the filter input
+  const [ successMsg, setSuccessMsg ] = useState( '' ) 
+  const [ errorMsg, setErrorMsg ] = useState( '' ) 
 
   // Fill "persons" array with json file, on server
   useEffect(() => {
@@ -61,7 +94,6 @@ const App = () => {
 
     // ----------------- Methods ---------------------
 
-  // Create new person and add it to the server
   const addSomeone = (event) => {
     event.preventDefault()
 
@@ -81,6 +113,12 @@ const App = () => {
             setPersons(persons.concat(personObject))
           })
     
+        // Display message during two seconds
+        setSuccessMsg(`${newName} has been successfully add`)
+        setTimeout(() => {
+          setSuccessMsg('')
+        }, 2000)
+
         // Reinitialize Name and Number for the next one
         setNewName('')
         setNewNumber('')
@@ -104,7 +142,15 @@ const App = () => {
               console.log('promise fulfilled (update), with object :', updateObject)
               setPersons(persons.map((person) => person.name !== newName ? person : updateObject))
             })
-          
+            .catch(error => { 
+              setErrorMsg(
+                `Person '${newName}' was already removed from server`
+              )
+              setTimeout(() => {
+                setErrorMsg('')
+              }, 3000)
+              setPersons(persons.filter(p => p.id !== id))
+            })
         
         } else {
           console.log("Cancelled, nothing changes")
@@ -115,7 +161,9 @@ const App = () => {
   }
 
   const deleteSomeone = (id, name) => {
-    console.log('Zoup, you are dead, you with id ', id, 'and name ', name)
+
+
+    console.log('Zoup, you are dead, you with id :', id, 'and name :', name)
 
     personService
       .deletePerson(id)
@@ -147,6 +195,9 @@ const App = () => {
     <div>
 
       <h2>Phonebook</h2>
+      <SuccessMsg 
+        successMsg={successMsg}
+      />
       <Filter 
         onChange={handleFilterChange}
         filter={filter}
@@ -162,6 +213,10 @@ const App = () => {
       /> 
 
       <h2>Numbers</h2>
+      <ErrorMsg 
+        errorMsg={errorMsg}
+      />
+
       <Numbers 
         persons={persons}
         filter={filter}
